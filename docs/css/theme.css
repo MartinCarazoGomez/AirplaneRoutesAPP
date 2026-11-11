@@ -555,14 +555,32 @@ html, body, #react-entry-point {
   top: 16px;
   right: 16px;
   z-index: 22;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 36px;
   gap: 6px;
+  width: min(392px, calc(100vw - 32px));
   padding: 6px;
-  border-radius: 999px;
+  border-radius: 16px;
   background: var(--glass);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px) saturate(1.3);
+}
+
+.look-switch .look-btn {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0 8px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.look-switch .route-finder-btn {
+  grid-column: 1 / -1;
 }
 
 .look-btn {
@@ -920,20 +938,88 @@ button.dash-dropdown .dash-dropdown-value,
   border-color: var(--muted) transparent transparent;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
+  .app-shell {
+    height: 100dvh;
+    --sheet-h: min(46vh, 420px);
+    --dock-w: 100%;
+  }
   .legend-card { display: none; }
+  .dock-shell {
+    top: auto;
+    right: 0;
+    bottom: env(safe-area-inset-bottom);
+    height: var(--sheet-h);
+    flex-direction: column-reverse;
+    align-items: center;
+  }
+  .dock-shell.is-closed {
+    transform: translateY(calc(100% - 48px));
+  }
+  .dock {
+    width: 100%;
+    height: calc(var(--sheet-h) - 48px);
+    border-radius: 20px 20px 0 0;
+    border-left: 1px solid var(--line);
+    padding-bottom: 14px;
+  }
+  .dock-toggle {
+    height: 40px;
+    margin: 0 0 8px;
+  }
+  .look-switch {
+    top: calc(8px + env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    grid-auto-rows: 44px;
+  }
+  .look-switch .look-btn {
+    font-size: 13px;
+  }
+  .combo input {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .two-stop-banner {
+    top: calc(112px + env(safe-area-inset-top));
+  }
   .hud,
   .dock-shell:not(.is-closed) ~ .hud,
   .dock-shell.is-closed ~ .hud {
-    left: 16px;
-    right: 16px;
+    left: 12px;
+    right: 12px;
     transform: none;
-    bottom: 118px;
+    bottom: calc(var(--sheet-h) + 12px);
+  }
+  .dock-shell.is-closed ~ .hud {
+    right: 176px;
+    bottom: calc(86px + env(safe-area-inset-bottom));
+  }
+  .dock-shell:not(.is-closed) ~ .orbit-dock,
+  .dock-shell:not(.is-closed) ~ .compass {
+    display: none;
   }
   .clear-route-btn,
   .dock-shell:not(.is-closed) ~ .clear-route-btn {
-    left: 50%;
-    bottom: 188px;
+    left: 12px;
+    right: auto;
+    transform: none;
+    bottom: calc(var(--sheet-h) + 78px);
   }
-  .heading-dial { width: 72px; height: 72px; }
+  .dock-shell.is-closed ~ .clear-route-btn {
+    bottom: calc(156px + env(safe-area-inset-bottom));
+  }
+  .orbit-dock,
+  .compass,
+  .dock-shell:not(.is-closed) ~ .orbit-dock,
+  .dock-shell:not(.is-closed) ~ .compass {
+    bottom: calc(var(--sheet-h) + 8px);
+  }
+  .dock-shell.is-closed ~ .orbit-dock,
+  .dock-shell.is-closed ~ .compass {
+    bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+  .heading-dial { width: 64px; height: 64px; }
+  .compass { width: 44px; height: 44px; }
 }

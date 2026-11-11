@@ -21,7 +21,7 @@
     finder: false,
     style: "night",
     globe: true,
-    dockClosed: false
+    dockClosed: window.matchMedia("(max-width: 900px)").matches
   };
 
   var mergeCache = new Map();
@@ -33,6 +33,11 @@
   var panelGen = 0;
 
   function $(id) { return document.getElementById(id); }
+
+  if (state.dockClosed) {
+    $("dock-shell").className = "dock-shell is-closed";
+    $("dock-toggle").textContent = "Panel";
+  }
 
   function esc(value) {
     return String(value == null ? "" : value).replace(/[&<>"]/g, function (ch) {
@@ -1030,8 +1035,8 @@
 
   function renderChrome(view) {
     $("route-finder-toggle").className = state.finder
-      ? "btn btn-ghost route-finder-btn is-on"
-      : "btn btn-ghost route-finder-btn";
+      ? "look-btn route-finder-btn is-on"
+      : "look-btn route-finder-btn";
     $("route-combos-toggle-btn").textContent = state.combos
       ? "Hide route combinations on map"
       : "Show route combinations on map";

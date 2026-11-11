@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Airways</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@450;560&family=Outfit:wght@380;520;640&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="css/theme.css" rel="stylesheet">
+  <link href="css/theme.css?v=6" rel="stylesheet">
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
 </head>
 <body>
@@ -22,7 +22,6 @@
           <div class="brand-mark">AIRWAYS</div>
           <div class="brand-sub">Flight atlas</div>
         </div>
-        <button id="route-finder-toggle" type="button" class="btn btn-ghost route-finder-btn" title="Pick two cities. The first stays marked and every city remains. The second shows direct and one-stop routes.">Route Finder</button>
         <div class="section-label">Airlines</div>
         <div class="combo">
           <input id="airline-filter" type="text" placeholder="Add an airline…" aria-label="Add an airline" autocomplete="off" spellcheck="false">
@@ -64,6 +63,7 @@
       <button id="look-day" type="button" class="look-btn">Day</button>
       <button id="look-sat" type="button" class="look-btn" title="Satellite imagery">Atlas</button>
       <button id="tilt-toggle" type="button" class="look-btn is-active" title="Globe or flat map">Globe</button>
+      <button id="route-finder-toggle" type="button" class="look-btn route-finder-btn" title="Pick two cities. The first stays marked and every city remains. The second shows direct and one-stop routes.">Route Finder</button>
     </div>
     <button id="reset-selection-button" type="button" class="btn btn-ghost clear-route-btn" title="Remove the selected cities (Esc)">Clear route</button>
     <div id="map-hud" class="hud">
@@ -93,6 +93,6 @@
   </div>
   <script src="js/globe.js?v=4"></script>
   <script src="js/orbit.js"></script>
-  <script src="js/app.js?v=4"></script>
+  <script src="js/app.js?v=5"></script>
 </body>
 </html>
