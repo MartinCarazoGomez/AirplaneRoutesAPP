@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Airways</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@450;560&family=Outfit:wght@380;520;640&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" rel="stylesheet">
+  <link href="css/theme.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="vignette"></div>
+    <div id="boot" class="boot">Loading flight atlas…</div>
+    <div id="two-stop-banner" class="two-stop-banner is-hidden"></div>
+    <div id="dock-shell" class="dock-shell">
+      <div id="route-info-panel" class="dock">
+        <div class="brand">
+          <div class="brand-mark">AIRWAYS</div>
+          <div class="brand-sub">Flight atlas</div>
+        </div>
+        <button id="route-finder-toggle" type="button" class="btn btn-ghost route-finder-btn" title="Pick two cities. The first stays marked and every city remains. The second shows direct and one-stop routes.">Route Finder</button>
+        <div class="section-label">Airlines</div>
+        <div class="combo">
+          <input id="airline-filter" type="text" placeholder="Add an airline…" aria-label="Add an airline" autocomplete="off" spellcheck="false">
+          <div id="airline-menu" class="combo-menu" hidden></div>
+        </div>
+        <div class="toggle-row">
+          <label>
+            <input id="show-all-routes" type="checkbox">
+            All routes
+          </label>
+        </div>
+        <div id="selected-airlines-chips" class="chip-list"></div>
+        <div class="btn-row">
+          <button id="myid-travel-preset-button" type="button" class="btn btn-primary">Iberia MyID</button>
+          <button id="asian-myid-preset-button" type="button" class="btn btn-teal">Asian MyID</button>
+        </div>
+        <button id="clear-airlines-button" type="button" class="btn btn-ghost">Clear airlines</button>
+        <div class="section-label">From / To</div>
+        <div class="combo">
+          <input id="route-tool-from" type="text" placeholder="Origin airport…" aria-label="Origin airport" autocomplete="off" spellcheck="false">
+          <button id="from-clear" type="button" class="combo-clear" hidden aria-label="Clear origin">×</button>
+          <div id="from-menu" class="combo-menu" hidden></div>
+        </div>
+        <div class="combo">
+          <input id="route-tool-to" type="text" placeholder="Destination airport…" aria-label="Destination airport" autocomplete="off" spellcheck="false">
+          <button id="to-clear" type="button" class="combo-clear" hidden aria-label="Clear destination">×</button>
+          <div id="to-menu" class="combo-menu" hidden></div>
+        </div>
+        <div id="route-checker-content"></div>
+        <p class="muted" style="margin: 0 0 8px 0">Nonstop and one-stop itineraries, using the same airline filter as the map.</p>
+        <button id="route-combos-toggle-btn" type="button" class="btn btn-teal">Show route combinations on map</button>
+        <div id="route-planner-content" class="planner-scroll"></div>
+        <div id="route-panel-content" class="route-detail"></div>
+      </div>
+      <button id="dock-toggle" type="button" class="dock-toggle" title="Show or hide the control panel">Hide</button>
+    </div>
+    <div class="look-switch">
+      <button id="look-night" type="button" class="look-btn is-active">Night</button>
+      <button id="look-day" type="button" class="look-btn">Day</button>
+      <button id="look-sat" type="button" class="look-btn" title="Satellite imagery">Atlas</button>
+      <button id="tilt-toggle" type="button" class="look-btn is-active" title="Globe or flat map">Globe</button>
+    </div>
+    <button id="reset-selection-button" type="button" class="btn btn-ghost clear-route-btn" title="Remove the selected cities (Esc)">Clear route</button>
+    <div id="map-hud" class="hud">
+      <div class="hud-title">World network</div>
+      <div class="hud-sub">Click a hub to unfold its routes</div>
+    </div>
+    <div class="legend-card">
+      <div class="legend-row"><span class="swatch swatch-mega"></span> Mega hub</div>
+      <div class="legend-row"><span class="swatch swatch-large"></span> Large</div>
+      <div class="legend-row"><span class="swatch swatch-med"></span> Medium</div>
+      <div class="legend-row"><span class="swatch swatch-small"></span> Small</div>
+      <div class="legend-row"><span class="swatch swatch-tiny"></span> Really small</div>
+      <div class="legend-row"><span class="swatch swatch-short"></span> Short haul</div>
+      <div class="legend-row"><span class="swatch swatch-mid"></span> Medium haul</div>
+      <div class="legend-row"><span class="swatch swatch-long"></span> Long haul</div>
+      <div class="legend-row"><span class="swatch swatch-ultra"></span> Ultra long</div>
+    </div>
+    <div id="world-map" class="map-stage" role="application" aria-label="Flight map"></div>
+    <div class="orbit-dock">
+      <button id="orbit-toggle" type="button" class="look-btn" title="Slowly turn the globe. Runs in the browser.">Orbit</button>
+      <div id="heading-dial" class="heading-dial" title="Drag around to turn the globe. Drag toward the rim to look toward a pole.">
+        <div class="dial-ring"></div>
+        <div id="dial-needle" class="dial-needle"></div>
+      </div>
+    </div>
+    <button id="north-compass-button" type="button" title="Level the globe, north up" class="compass">⌖</button>
+  </div>
+  <script src="js/globe.js?v=4"></script>
+  <script src="js/orbit.js"></script>
+  <script src="js/app.js?v=4"></script>
+</body>
+</html>

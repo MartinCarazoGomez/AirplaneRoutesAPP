@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+*.parquet
+flights_export.csv
+flights_schedule_cache.pkl
