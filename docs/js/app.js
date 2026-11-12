@@ -694,6 +694,25 @@
       });
     }
 
+    var journeys = [];
+    if (shown.length) {
+      shown.forEach(function (path) {
+        var legs = [];
+        var hops = path.length - 1;
+        for (var hop = 0; hop < hops; hop++) {
+          var hopFrom = airports.get(path[hop]);
+          var hopTo = airports.get(path[hop + 1]);
+          if (!hopFrom || !hopTo) continue;
+          var drawnHop = routeParts(hopFrom, hopTo, null, 1, true);
+          var hopBand = hops <= 1 ? 9 : (hop === 0 ? 10 : (hop === hops - 1 ? 9 : 11));
+          drawnHop.parts.forEach(function (part) {
+            if (part && part.length >= 2) legs.push([hopBand, part]);
+          });
+        }
+        if (legs.length) journeys.push(legs);
+      });
+    }
+
     var chosenDest = dest && airports.has(dest) ? dest : null;
     var markerDest = showDestHighlight ? chosenDest : null;
     var markers = display.map(function (airport) {
@@ -747,7 +766,8 @@
           pitch: routeRows.length ? 34 : 14
         },
         airports: markers,
-        routes: routeRows
+        routes: routeRows,
+        journeys: journeys
       },
       mesh: mesh,
       meshPromise: meshPromise,

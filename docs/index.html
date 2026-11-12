@@ -8,10 +8,43 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@450;560&family=Outfit:wght@380;520;640&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="css/theme.css?v=6" rel="stylesheet">
+  <link href="css/theme.css?v=12" rel="stylesheet">
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
 </head>
 <body>
+  <div class="phone-app">
+  <section id="screen-flights" class="screen is-active history-screen" role="tabpanel" aria-labelledby="tab-flights">
+    <div id="history-map" aria-label="Your flights on the globe"></div>
+    <div class="history-hud">
+      <div class="hud-title">Your flights</div>
+      <div class="hud-sub">Example trips until your history is saved</div>
+    </div>
+    <div id="history-shell" class="history-shell">
+      <div class="history-flow">
+        <ol id="history-flow-list" class="flow"></ol>
+      </div>
+      <button id="history-toggle" type="button" class="dock-toggle history-toggle" title="Show or hide your flights">Hide</button>
+    </div>
+    <div id="history-display" class="history-display">
+      <button id="history-display-toggle" type="button" class="dock-toggle history-display-toggle" title="Show or hide the flight display">Hide</button>
+      <div class="history-timeline">
+        <div class="history-time-row">
+          <button id="history-play" type="button" class="history-play" title="Play through your flights">Play</button>
+          <div class="history-time-copy">
+            <div id="history-time-label" class="history-time-label">3 Aug 2026 · 11:50</div>
+            <div id="history-time-sub" class="history-time-sub">10 of 10 flights</div>
+          </div>
+          <div class="history-speed" role="group" aria-label="Playback speed">
+            <button type="button" data-speed="1" class="is-on" aria-pressed="true">1×</button>
+            <button type="button" data-speed="2" aria-pressed="false">2×</button>
+            <button type="button" data-speed="4" aria-pressed="false">4×</button>
+          </div>
+        </div>
+        <input id="history-slider" class="history-slider" type="range" min="0" max="9" value="9" aria-label="Show flights up to this date and time">
+      </div>
+    </div>
+  </section>
+  <section id="screen-explore" class="screen" role="tabpanel" aria-labelledby="tab-explore">
   <div class="app-shell">
     <div class="vignette"></div>
     <div id="boot" class="boot">Loading flight atlas…</div>
@@ -91,8 +124,40 @@
     </div>
     <button id="north-compass-button" type="button" title="Level the globe, north up" class="compass">⌖</button>
   </div>
-  <script src="js/globe.js?v=4"></script>
+  </section>
+  <section id="screen-settings" class="screen" role="tabpanel" aria-labelledby="tab-settings">
+    <div class="page">
+      <div class="page-kicker">Profile</div>
+      <h1 class="page-title">Settings</h1>
+      <div class="profile-card">
+        <div class="profile-avatar" aria-hidden="true">G</div>
+        <div>
+          <div class="profile-name">Guest</div>
+          <div class="profile-sub">Signed in on this device</div>
+        </div>
+      </div>
+      <p class="page-lead">You open the app as a guest. A later sign-in can keep a separate flight history for each person.</p>
+    </div>
+  </section>
+  <nav class="tabbar" role="tablist" aria-label="App sections">
+    <button id="tab-flights" type="button" class="tab is-selected" role="tab" aria-selected="true" aria-controls="screen-flights" data-tab="flights">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
+      <span>Flights</span>
+    </button>
+    <button id="tab-explore" type="button" class="tab" role="tab" aria-selected="false" aria-controls="screen-explore" data-tab="explore">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M9 18.5 3.8 20.2V6.2L9 4.5l6 2 5.2-1.7v14l-5.2 1.7-6-2z"/><path fill="none" stroke="currentColor" stroke-width="1.7" d="M9 4.5v14M15 6.5v14"/></svg>
+      <span>Explore</span>
+    </button>
+    <button id="tab-settings" type="button" class="tab" role="tab" aria-selected="false" aria-controls="screen-settings" data-tab="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.1 7.1 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.83 15.52a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.68.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.05.24.26.42.5.42h3.84c.24 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.25.12.54.02.68-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+  </div>
+  <script src="js/globe.js?v=11"></script>
   <script src="js/orbit.js"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/app.js?v=6"></script>
+  <script src="js/history.js?v=9"></script>
+  <script src="js/shell.js?v=2"></script>
 </body>
 </html>

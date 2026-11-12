@@ -63,7 +63,6 @@
     11: [0.933, 0.275, 0.400, 1]
   };
   var MESH_COLOR = [0.729, 0.902, 0.992, 0.42];
-  var cpuVerts = null;
 
   function mercatorOf(lon, lat) {
     var mc = window.maplibregl.MercatorCoordinate.fromLngLat({ lng: lon, lat: lat });
@@ -102,8 +101,8 @@
     var rows = routes || [];
     for (var r = 0; r < rows.length; r++) {
       var band = rows[r][0];
-      var color = BAND_COLOR[band] || BAND_COLOR[1];
-      var width = band === 8 ? 4.4 : band === 9 || band === 10 || band === 11 ? 3.6 : 2.5;
+      var color = rows[r][3] || BAND_COLOR[band] || BAND_COLOR[1];
+      var width = rows[r][4] || (band === 8 ? 4.4 : band === 9 || band === 10 || band === 11 ? 3.6 : 2.5);
       appendLine(out, rows[r][1], color, width);
     }
     return out;
@@ -130,6 +129,7 @@
     buffer: null,
     count: 0,
     onAdd: function (m, gl) {
+      this.map = m;
       this.gl = gl;
       this.program = null;
       this.programKey = "";
@@ -137,7 +137,7 @@
         gl.deleteBuffer(this.buffer);
         this.buffer = null;
       }
-      if (cpuVerts && cpuVerts.length) this.upload(gl);
+      if (this.verts && this.verts.length) this.upload(gl);
     },
     onRemove: function () {
       var gl = this.gl;
@@ -150,13 +150,13 @@
     upload: function (gl) {
       if (!this.buffer) this.buffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cpuVerts), gl.DYNAMIC_DRAW);
-      this.count = cpuVerts.length / 13;
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.verts || []), gl.DYNAMIC_DRAW);
+      this.count = (this.verts || []).length / 13;
     },
     setData: function (routes, mesh) {
-      cpuVerts = buildArcVerts(routes, mesh);
+      this.verts = buildArcVerts(routes, mesh);
       if (this.gl) this.upload(this.gl);
-      if (map) map.triggerRepaint();
+      if (this.map) this.map.triggerRepaint();
     },
     shaderFor: function (gl, shaderData) {
       var key = shaderData.variantName || "";
@@ -250,7 +250,8 @@
       gl.uniform4fv(loc.tile, proj.tileMercatorCoords);
       gl.uniform4fv(loc.clip, proj.clippingPlane);
       gl.uniform1f(loc.transition, proj.projectionTransition);
-      var canvas = map.getCanvas();
+      var host = this.map || map;
+      var canvas = host.getCanvas();
       gl.uniform2f(loc.viewport, canvas.width, canvas.height);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
       var stride = 13 * 4;
@@ -269,7 +270,7 @@
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.enable(gl.DEPTH_TEST);
       gl.depthMask(false);
-      var shifts = visibleWorldShifts();
+      var shifts = visibleWorldShifts(host);
       for (var s = 0; s < shifts.length; s++) {
         if (loc.shift) gl.uniform1f(loc.shift, shifts[s]);
         gl.drawArrays(gl.TRIANGLES, 0, this.count);
@@ -281,9 +282,127 @@
     }
   };
 
+  function brightenColor(rgba) {
+    return [
+      rgba[0] + (1 - rgba[0]) * 0.72,
+      rgba[1] + (1 - rgba[1]) * 0.72,
+      rgba[2] + (1 - rgba[2]) * 0.72,
+      1
+    ];
+  }
+
+  function pointAlong(coords, t) {
+    var last = coords.length - 1;
+    if (last <= 0) return coords[0];
+    var clamped = Math.max(0, Math.min(0.9999, t));
+    var pos = clamped * last;
+    var i = Math.floor(pos);
+    var f = pos - i;
+    var a = coords[i];
+    var b = coords[Math.min(last, i + 1)];
+    return [
+      a[0] + (b[0] - a[0]) * f,
+      a[1] + (b[1] - a[1]) * f,
+      (a[2] || 0) + ((b[2] || 0) - (a[2] || 0)) * f
+    ];
+  }
+
+  function spanAlong(coords, start, end) {
+    if (!coords || coords.length < 2 || end - start < 0.008) return null;
+    var last = coords.length - 1;
+    var out = [pointAlong(coords, start)];
+    var i;
+    for (i = Math.floor(start * last) + 1; i <= Math.floor(Math.min(0.9999, end) * last); i++) out.push(coords[i]);
+    out.push(pointAlong(coords, Math.min(0.9999, end)));
+    return out.length >= 2 ? out : null;
+  }
+
+  function liftPulse(coords) {
+    var out = [];
+    for (var i = 0; i < coords.length; i++) out.push([coords[i][0], coords[i][1], (coords[i][2] || 0) + 14000]);
+    return out;
+  }
+
+  var PULSE_DASH = 0.16;
+
+  function pulseWindow(phase) {
+    var p = phase - Math.floor(phase);
+    var travel = p * (1 + PULSE_DASH);
+    var head = Math.min(0.999, travel);
+    var tail = Math.max(0, travel - PULSE_DASH);
+    if (tail >= head) return null;
+    return { tail: tail, head: head };
+  }
+
+  function pulseRowsFor(coords, band, phase) {
+    var dash = pulseWindow(phase);
+    if (!dash) return [];
+    var piece = spanAlong(coords, dash.tail, dash.head);
+    if (!piece) return [];
+    return [[band, liftPulse(piece), null, brightenColor(BAND_COLOR[band] || BAND_COLOR[1]), 5.4]];
+  }
+
+  var pulseLayer = null;
+  var pulseIdle = true;
+  var pulseLoopStarted = false;
+  var LEG_MS = 2600;
+
+  function paintRoutePulses(now) {
+    if (!pulseLayer || !pending) return;
+    var rows = [];
+    var journeys = pending.journeys || [];
+    var i, j, phase, legs, index, local;
+    if (journeys.length) {
+      for (i = 0; i < journeys.length; i++) {
+        legs = journeys[i];
+        if (!legs || !legs.length) continue;
+        phase = ((now + i * 700) % (LEG_MS * legs.length)) / LEG_MS;
+        index = Math.min(legs.length - 1, Math.floor(phase));
+        local = phase - index;
+        rows = rows.concat(pulseRowsFor(legs[index][1], legs[index][0], local));
+      }
+    } else if (pending.routes && pending.routes.length && pending.routes.length <= 420) {
+      for (j = 0; j < pending.routes.length; j++) {
+        phase = ((now + j * 170) % LEG_MS) / LEG_MS;
+        rows = rows.concat(pulseRowsFor(pending.routes[j][1], pending.routes[j][0], phase));
+      }
+    }
+    if (!rows.length) {
+      if (!pulseIdle) {
+        pulseLayer.setData([], null);
+        pulseIdle = true;
+      }
+      return;
+    }
+    pulseIdle = false;
+    pulseLayer.setData(rows, null);
+  }
+
+  function pulseTick(now) {
+    var screen = document.getElementById("screen-explore");
+    var active = !screen || screen.classList.contains("is-active");
+    if (active) paintRoutePulses(now);
+    if (active) requestAnimationFrame(pulseTick);
+    else setTimeout(function () { requestAnimationFrame(pulseTick); }, 400);
+  }
+
+  function ensurePulseLayer() {
+    if (!map || !window.airwaysCreateArcLayer) return;
+    if (pulseLayer && map.getLayer("route-pulses")) return;
+    pulseLayer = window.airwaysCreateArcLayer();
+    pulseLayer.id = "route-pulses";
+    map.addLayer(pulseLayer);
+    pulseIdle = true;
+    if (!pulseLoopStarted) {
+      pulseLoopStarted = true;
+      requestAnimationFrame(pulseTick);
+    }
+  }
+
   function addLayers() {
     if (!map || map.getSource("airports")) return;
     if (!map.getLayer("route-arcs")) map.addLayer(arcLayer);
+    ensurePulseLayer();
     var labelFont = ["Open Sans Regular"];
     var styleLayers = (map.getStyle() && map.getStyle().layers) || [];
     for (var li = 0; li < styleLayers.length; li++) {
@@ -415,11 +534,12 @@
     return x;
   }
 
-  function visibleWorldShifts() {
-    if (!map || !map.transform || !map.getRenderWorldCopies || !map.getRenderWorldCopies()) return [0];
-    var projection = map.getProjection && map.getProjection();
+  function visibleWorldShifts(view) {
+    view = view || map;
+    if (!view || !view.transform || !view.getRenderWorldCopies || !view.getRenderWorldCopies()) return [0];
+    var projection = view.getProjection && view.getProjection();
     if (projection && projection.type === "globe") return [0];
-    var transform = map.transform;
+    var transform = view.transform;
     var worldSize = transform.worldSize;
     var width = transform.width;
     if (!worldSize || !width) return [0];
@@ -695,7 +815,7 @@
       zoom: 1.25,
       bearing: 0,
       pitch: 0,
-      attributionControl: true,
+      attributionControl: false,
       fadeDuration: 0,
       maxPitch: 70
     });
@@ -716,6 +836,24 @@
       apply();
     });
   }
+
+  window.airwaysCreateArcLayer = function () {
+    var clone = {
+      id: "route-arcs",
+      type: "custom",
+      renderingMode: "3d",
+      program: null,
+      programKey: "",
+      buffer: null,
+      count: 0,
+      verts: null,
+      map: null
+    };
+    ["onAdd", "onRemove", "upload", "setData", "shaderFor", "render"].forEach(function (name) {
+      clone[name] = arcLayer[name];
+    });
+    return clone;
+  };
 
   window.airwaysRenderMap = function (payload, mesh) {
     if (mesh !== undefined) meshLines = mesh || null;

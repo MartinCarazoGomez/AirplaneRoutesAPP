@@ -688,7 +688,7 @@
       zoom: 1.25,
       bearing: 0,
       pitch: 0,
-      attributionControl: true,
+      attributionControl: false,
       fadeDuration: 0,
       maxPitch: 70
     });
