@@ -1,23 +1,29 @@
 (function () {
-  var PLACES = {
-    MAD: { lon: -3.567, lat: 40.472, name: "Madrid" },
-    BCN: { lon: 2.079, lat: 41.297, name: "Barcelona" },
-    SIN: { lon: 103.991, lat: 1.364, name: "Singapore" },
-    HKG: { lon: 113.915, lat: 22.309, name: "Hong Kong" }
+  var SHEET_URL = "https://docs.google.com/spreadsheets/d/1CiNDOUDSymnV-9J7q6X2aEu26YhSdQ28zWr_8N6Xsf8/export?format=csv&gid=389720084";
+  var PROFILE_NAMES = {
+    martin: "Martin",
+    mati: "Mati",
+    cristina: "Cristina",
+    elena: "Elena",
+    elias: "Elias",
+    martinillo: "Martinillo"
   };
+  var PROFILE_SHEET = {
+    martin: { martin: 1, papa: 1 },
+    mati: { mati: 1, mama: 1 },
+    cristina: { cris: 1, cristina: 1 },
+    elena: { elena: 1 },
+    elias: { elias: 1, ia: 1 },
+    martinillo: { martinillo: 1 }
+  };
+  var MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+  var MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  var TRIPS = [
-    { date: "14 Jan 2026", time: "08:15", from: "MAD", to: "BCN", flight: "Iberia IB3152" },
-    { date: "2 Feb 2026", time: "19:40", from: "BCN", to: "MAD", flight: "Vueling VY1004" },
-    { date: "18 Mar 2026", time: "13:05", from: "MAD", to: "SIN", flight: "Singapore Airlines SQ321" },
-    { date: "21 Mar 2026", time: "09:20", from: "SIN", to: "HKG", flight: "Singapore Airlines SQ856" },
-    { date: "25 Mar 2026", time: "16:45", from: "HKG", to: "SIN", flight: "Cathay Pacific CX735" },
-    { date: "2 Apr 2026", time: "23:10", from: "SIN", to: "BCN", flight: "Singapore Airlines SQ388" },
-    { date: "9 May 2026", time: "07:55", from: "BCN", to: "MAD", flight: "Iberia IB146" },
-    { date: "16 Jun 2026", time: "14:30", from: "MAD", to: "HKG", flight: "Cathay Pacific CX321" },
-    { date: "28 Jul 2026", time: "01:15", from: "HKG", to: "BCN", flight: "Cathay Pacific CX319" },
-    { date: "3 Aug 2026", time: "11:50", from: "BCN", to: "SIN", flight: "Singapore Airlines SQ387" }
-  ];
+  var PLACES = {};
+  var TRIPS = [];
+  var allRows = null;
+  var activeId = readActive();
+  var loadState = "loading";
 
   var BAND_CLASS = ["is-short", "is-mid", "is-long", "is-ultra"];
   var BAND_RGBA = [
@@ -39,6 +45,132 @@
   var revealStart = 0;
   var advanceQueued = false;
   var geometries = [];
+
+  function readActive() {
+    try {
+      var data = JSON.parse(localStorage.getItem("airways-profile") || "{}");
+      return data && data.active ? data.active : "";
+    } catch (err) {
+      return "";
+    }
+  }
+
+  function cell(row, index) {
+    return index < row.length ? String(row[index] || "").trim() : "";
+  }
+
+  function parseCsv(text) {
+    var rows = [];
+    var row = [];
+    var value = "";
+    var quoted = false;
+    var i, ch;
+    for (i = 0; i < text.length; i++) {
+      ch = text.charAt(i);
+      if (quoted) {
+        if (ch === "\"") {
+          if (text.charAt(i + 1) === "\"") {
+            value += "\"";
+            i++;
+          } else quoted = false;
+        } else value += ch;
+      } else if (ch === "\"") quoted = true;
+      else if (ch === ",") {
+        row.push(value);
+        value = "";
+      } else if (ch === "\n") {
+        row.push(value);
+        rows.push(row);
+        row = [];
+        value = "";
+      } else if (ch !== "\r") value += ch;
+    }
+    if (value.length || row.length) {
+      row.push(value);
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  function parseWhen(text) {
+    var match = String(text || "").match(/(\d{1,2})[-\/]([A-Za-z]{3,})[-\/](\d{4})/);
+    if (!match) return null;
+    var month = MONTHS[match[2].slice(0, 3).toLowerCase()];
+    if (month == null) return null;
+    return new Date(Number(match[3]), month, Number(match[1]));
+  }
+
+  function parseClock(text) {
+    var match = String(text || "").match(/(\d{1,2}):(\d{2})/);
+    if (!match) return "";
+    var hour = match[1];
+    if (hour.length < 2) hour = "0" + hour;
+    return hour + ":" + match[2];
+  }
+
+  function clockMinutes(text) {
+    var match = String(text || "").match(/(\d{1,2}):(\d{2})/);
+    if (!match) return -1;
+    return Number(match[1]) * 60 + Number(match[2]);
+  }
+
+  function flown(status) {
+    var value = String(status || "").trim().toLowerCase();
+    return !value || value.indexOf("realizado") === 0;
+  }
+
+  function flightLabel(airline, code) {
+    var name = String(airline || "").trim();
+    var number = String(code || "").trim();
+    if (name && number) return name + " " + number;
+    return name || number || "Flight";
+  }
+
+  function pushTrip(list, person, airline, code, origin, dest, dateText, timeText, status) {
+    if (!flown(status)) return;
+    var from = String(origin || "").trim().toUpperCase();
+    var to = String(dest || "").trim().toUpperCase();
+    var when = parseWhen(dateText);
+    if (!/^[A-Z]{3}$/.test(from) || !/^[A-Z]{3}$/.test(to) || from === to || !when) return;
+    list.push({
+      person: String(person || "").trim().toLowerCase(),
+      date: when.getDate() + " " + MONTH_NAMES[when.getMonth()] + " " + when.getFullYear(),
+      time: parseClock(timeText),
+      sort: when.getTime() + Math.max(0, clockMinutes(timeText)) * 60000,
+      from: from,
+      to: to,
+      flight: flightLabel(airline, code)
+    });
+  }
+
+  function rowsFromSheet(table) {
+    var list = [];
+    var i, row;
+    for (i = 4; i < table.length; i++) {
+      row = table[i];
+      pushTrip(list, cell(row, 3), cell(row, 6), cell(row, 13), cell(row, 8), cell(row, 9), cell(row, 10) || cell(row, 2), cell(row, 11), cell(row, 12));
+      pushTrip(list, cell(row, 16), cell(row, 19), cell(row, 20), cell(row, 21), cell(row, 22), cell(row, 23), cell(row, 24), cell(row, 25));
+    }
+    return list;
+  }
+
+  function showForActive() {
+    var names = PROFILE_SHEET[activeId] || {};
+    var next = [];
+    var i;
+    for (i = 0; i < allRows.length; i++) {
+      if (names[allRows[i].person]) next.push(allRows[i]);
+    }
+    next.sort(function (a, b) { return a.sort - b.sort; });
+    TRIPS = next;
+    geometries = [];
+    cursor = TRIPS.length ? TRIPS.length - 1 : -1;
+    revealing = false;
+    revealOrigin = 1;
+    stopPlay();
+    syncSliderBounds();
+    setCursor(cursor, false);
+  }
 
   function haversineKm(lat1, lon1, lat2, lon2) {
     var radius = 6371;
@@ -112,6 +244,10 @@
     var trip = TRIPS[index];
     var from = PLACES[trip.from];
     var to = PLACES[trip.to];
+    if (!from || !to) {
+      geometries[index] = null;
+      return null;
+    }
     var km = haversineKm(from.lat, from.lon, to.lat, to.lon);
     var steps = routeCurveSteps(km);
     var line = greatCircle(from, to, steps);
@@ -215,6 +351,7 @@
         if (seen[code]) return;
         seen[code] = true;
         var place = PLACES[code];
+        if (!place) return;
         features.push({
           type: "Feature",
           properties: { code: code },
@@ -229,12 +366,14 @@
     if (!arcs) return;
     var screen = document.getElementById("screen-flights");
     if (screen && !screen.classList.contains("is-active")) return;
+    if (cursor < 0) return;
     var phase = (now % PULSE_MS) / PULSE_MS;
     var shown = revealAmount(now);
     var rows = [];
     var i, geo, color, pieces, p;
     for (i = 0; i <= cursor; i++) {
       geo = geometry(i);
+      if (!geo) continue;
       color = BAND_RGBA[geo.band];
       if (i === cursor && revealing) {
         rows.push([8, sliceTo(geo.coords, shown), null, HIGHLIGHT, 4.4]);
@@ -281,37 +420,68 @@
   }
 
   function stamp(trip) {
-    return trip.date + " · " + trip.time;
+    return trip.time ? trip.date + " · " + trip.time : trip.date;
+  }
+
+  function profileLabel() {
+    return PROFILE_NAMES[activeId] || "This profile";
+  }
+
+  function syncSliderBounds() {
+    var slider = document.getElementById("history-slider");
+    if (!slider) return;
+    slider.disabled = !TRIPS.length;
+    slider.max = String(Math.max(0, TRIPS.length - 1));
+    slider.value = String(Math.max(0, cursor));
   }
 
   function renderSlider() {
-    var trip = TRIPS[cursor];
     var label = document.getElementById("history-time-label");
     var sub = document.getElementById("history-time-sub");
     var slider = document.getElementById("history-slider");
-    if (label) label.textContent = stamp(trip);
-    if (sub) {
-      sub.textContent = (cursor + 1) + " of " + TRIPS.length + " flights · up to " + trip.time;
+    if (!TRIPS.length) {
+      if (label) label.textContent = loadState === "loading" ? "Loading flights" : loadState === "error" ? "Sheet unavailable" : "No flights";
+      if (sub) {
+        sub.textContent = loadState === "loading"
+          ? "Reading Super Flights"
+          : loadState === "error"
+            ? "The flight sheet could not be opened"
+            : profileLabel() + " has no flights in Super Flights";
+      }
+      if (slider) {
+        slider.disabled = true;
+        slider.value = "0";
+      }
+      return;
     }
+    var trip = TRIPS[cursor];
+    if (label) label.textContent = stamp(trip);
+    if (sub) sub.textContent = (cursor + 1) + " of " + TRIPS.length + " flights";
     if (slider && String(slider.value) !== String(cursor)) slider.value = String(cursor);
   }
 
   function renderList() {
     var list = document.getElementById("history-flow-list");
     if (!list) return;
+    if (!TRIPS.length) {
+      var note = loadState === "loading" ? "Loading Super Flights…" : loadState === "error" ? "The flight sheet could not be opened." : "No flights for " + profileLabel() + " in Super Flights.";
+      list.innerHTML = "<li class='is-empty'>" + note + "</li>";
+      return;
+    }
     var html = "";
     var index;
     for (index = 0; index <= cursor; index++) {
       var trip = TRIPS[index];
       var from = PLACES[trip.from];
       var to = PLACES[trip.to];
-      var band = BAND_CLASS[geometry(index).band];
+      var geo = geometry(index);
+      var band = geo ? BAND_CLASS[geo.band] : "is-mid";
       html += (
         "<li><button type='button' class='flow-item" + (index === cursor ? " is-on" : "") + "' data-index='" + index + "'>" +
         "<span class='flow-dot " + band + "' aria-hidden='true'></span>" +
         "<span class='flow-date'>" + stamp(trip) + "</span>" +
         "<span class='flow-route'>" + trip.from + " → " + trip.to + "</span>" +
-        "<span class='flow-meta'>" + from.name + " to " + to.name + " · " + trip.flight + "</span>" +
+        "<span class='flow-meta'>" + (from ? from.name : trip.from) + " to " + (to ? to.name : trip.to) + " · " + trip.flight + "</span>" +
         "</button></li>"
       );
     }
@@ -325,16 +495,54 @@
   }
 
   function mapPadding() {
-    var narrow = window.matchMedia("(max-width: 900px)").matches;
-    if (!narrow) return { top: 24, bottom: 28, left: 28, right: 28 };
-    var display = document.getElementById("history-display");
     var screen = document.getElementById("screen-flights");
-    if (!display || !screen) return { top: 64, bottom: 280, left: 8, right: 8 };
-    var cover = screen.getBoundingClientRect().bottom - display.getBoundingClientRect().top + 8;
-    return { top: 64, bottom: Math.max(80, cover), left: 8, right: 8 };
+    var display = document.getElementById("history-display");
+    var shell = document.getElementById("history-shell");
+    var screenBox = screen ? screen.getBoundingClientRect() : null;
+    var narrow = window.matchMedia("(max-width: 900px)").matches;
+
+    function fromTop(el) {
+      if (!el || !screenBox) return 0;
+      return Math.max(0, el.getBoundingClientRect().bottom - screenBox.top);
+    }
+
+    function fromBottom(el) {
+      if (!el || !screenBox) return 0;
+      return Math.max(0, screenBox.bottom - el.getBoundingClientRect().top);
+    }
+
+    if (!narrow) {
+      var left = 28;
+      if (shell && screenBox) {
+        var shellRight = shell.getBoundingClientRect().right - screenBox.left;
+        if (shellRight > 0) left = Math.max(28, Math.round(shellRight) + 12);
+      }
+      return {
+        top: Math.max(24, Math.round(fromTop(display)) + 12),
+        bottom: 28,
+        left: left,
+        right: 28
+      };
+    }
+
+    return {
+      top: Math.max(16, Math.round(fromTop(display)) + 10),
+      bottom: Math.max(16, Math.round(fromBottom(shell)) + 10),
+      left: 8,
+      right: 8
+    };
   }
 
   function setCursor(index, animate, flow) {
+    if (!TRIPS.length) {
+      cursor = -1;
+      revealing = false;
+      renderSlider();
+      renderList();
+      paintAirports();
+      if (arcs) arcs.setData([], null);
+      return;
+    }
     cursor = Math.max(0, Math.min(TRIPS.length - 1, index));
     if (flow) {
       revealing = true;
@@ -354,8 +562,10 @@
       var trip = TRIPS[cursor];
       var from = PLACES[trip.from];
       var to = PLACES[trip.to];
-      camera.center = [(from.lon + to.lon) / 2, (from.lat + to.lat) / 2];
-      camera.zoom = Math.abs(from.lon - to.lon) > 40 ? 1.55 : 3.2;
+      if (from && to) {
+        camera.center = [(from.lon + to.lon) / 2, (from.lat + to.lat) / 2];
+        camera.zoom = Math.abs(from.lon - to.lon) > 40 ? 1.55 : 3.2;
+      }
     }
     map.easeTo(camera);
   }
@@ -421,11 +631,93 @@
     });
   }
 
+  var MAP_GESTURES = ["dragPan", "dragRotate", "scrollZoom", "touchZoomRotate", "touchPitch", "doubleClickZoom"];
+
+  function setGlobeTouch(enabled) {
+    if (!map) return;
+    for (var i = 0; i < MAP_GESTURES.length; i++) {
+      var handler = map[MAP_GESTURES[i]];
+      if (!handler) continue;
+      if (enabled) handler.enable();
+      else handler.disable();
+    }
+  }
+
+  function bindOverlayGesture() {
+    var shield = document.getElementById("history-gesture-shield");
+    var shell = document.getElementById("history-shell");
+    var display = document.getElementById("history-display");
+    var flow = shell ? shell.querySelector(".history-flow") : null;
+    if (!shield || !shell) return;
+    var active = null;
+
+    function overlayTarget(node) {
+      return !!(node && ((shell && shell.contains(node)) || (display && display.contains(node))));
+    }
+
+    function pointOutside(el, x, y) {
+      if (!el) return true;
+      var box = el.getBoundingClientRect();
+      return x < box.left || x > box.right || y < box.top || y > box.bottom;
+    }
+
+    function onTouchMove(event) {
+      if (!active) return;
+      var touch = event.touches && event.touches[0];
+      if (!touch) return;
+      var outsideList = !active.scrolling || pointOutside(flow, touch.clientX, touch.clientY);
+      if (!outsideList) {
+        active.y = touch.clientY;
+        return;
+      }
+      if (!active.scrolling && overlayTarget(event.target)) return;
+      if (event.cancelable) event.preventDefault();
+      event.stopPropagation();
+      if (!active.scrolling || !flow) return;
+      var dy = active.y - touch.clientY;
+      active.y = touch.clientY;
+      if (dy) flow.scrollTop += dy;
+    }
+
+    function arm(event) {
+      if (!overlayTarget(event.target)) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (!active) {
+        document.addEventListener("touchmove", onTouchMove, { capture: true, passive: false });
+      }
+      active = {
+        id: event.pointerId,
+        y: event.clientY,
+        scrolling: !!(flow && flow.contains(event.target))
+      };
+      shield.classList.add("is-on");
+      setGlobeTouch(false);
+    }
+
+    function end(event) {
+      if (!active || event.pointerId !== active.id) return;
+      active = null;
+      shield.classList.remove("is-on");
+      setGlobeTouch(true);
+      document.removeEventListener("touchmove", onTouchMove, true);
+    }
+
+    shell.addEventListener("pointerdown", arm);
+    if (display) display.addEventListener("pointerdown", arm);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+
+    document.addEventListener("mousemove", function (event) {
+      if (!active || overlayTarget(event.target)) return;
+      event.stopImmediatePropagation();
+    }, true);
+  }
+
   function bindToggle() {
     var shell = document.getElementById("history-shell");
     var toggle = document.getElementById("history-toggle");
     if (!shell || !toggle) return;
-    var closed = false;
+    var closed = true;
     toggle.addEventListener("click", function () {
       closed = !closed;
       shell.classList.toggle("is-closed", closed);
@@ -437,11 +729,11 @@
     var display = document.getElementById("history-display");
     var displayToggle = document.getElementById("history-display-toggle");
     if (display && displayToggle) {
-      var displayClosed = false;
+      var displayClosed = true;
       displayToggle.addEventListener("click", function () {
         displayClosed = !displayClosed;
         display.classList.toggle("is-closed", displayClosed);
-        displayToggle.textContent = displayClosed ? "Display" : "Hide";
+        displayToggle.textContent = displayClosed ? "Timeline" : "Hide";
         requestAnimationFrame(function () {
           if (map) map.easeTo({ padding: mapPadding(), duration: 400 });
         });
@@ -486,6 +778,7 @@
           stopPlay();
           return;
         }
+        if (!TRIPS.length) return;
         playing = true;
         play.textContent = "Pause";
         if (cursor >= TRIPS.length - 1) setCursor(0, true, true);
@@ -494,11 +787,43 @@
     }
   }
 
+  function loadSheet() {
+    Promise.all([
+      fetch(SHEET_URL).then(function (res) { if (!res.ok) throw new Error("sheet"); return res.text(); }),
+      fetch("data/airports.json").then(function (res) { if (!res.ok) throw new Error("airports"); return res.json(); })
+    ]).then(function (parts) {
+      var airports = parts[1];
+      var i;
+      for (i = 0; i < airports.length; i++) {
+        PLACES[airports[i].iata] = {
+          lon: airports[i].lon,
+          lat: airports[i].lat,
+          name: airports[i].mun || airports[i].name
+        };
+      }
+      allRows = rowsFromSheet(parseCsv(parts[0]));
+      loadState = "ready";
+      activeId = readActive();
+      showForActive();
+    }).catch(function () {
+      loadState = "error";
+      allRows = [];
+      showForActive();
+    });
+  }
+
+  window.addEventListener("airways-profile", function (event) {
+    activeId = event.detail || "";
+    if (allRows) showForActive();
+  });
+
   renderSlider();
   renderList();
+  bindOverlayGesture();
   bindToggle();
   bindSlider();
   ensure();
+  loadSheet();
   window.addEventListener("resize", function () {
     if (!map) return;
     map.resize();

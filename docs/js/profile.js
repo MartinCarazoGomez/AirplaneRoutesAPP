@@ -19,7 +19,7 @@
   }
 
   function emptyPerson() {
-    return { photo: "", born: "", about: "", firstLogin: "", loginNoted: false };
+    return { photo: "", born: "", about: "" };
   }
 
   function load() {
@@ -45,22 +45,11 @@
     }
   }
 
-  function todayISO() {
-    var d = new Date();
-    var month = String(d.getMonth() + 1);
-    var day = String(d.getDate());
-    if (month.length < 2) month = "0" + month;
-    if (day.length < 2) day = "0" + day;
-    return d.getFullYear() + "-" + month + "-" + day;
-  }
-
   function record(data, id) {
     if (!data.people[id]) data.people[id] = emptyPerson();
     var person = data.people[id];
-    if (!person.loginNoted) {
-      person.firstLogin = person.firstLogin || todayISO();
-      person.loginNoted = true;
-    }
+    delete person.firstLogin;
+    delete person.loginNoted;
     return person;
   }
 
@@ -76,16 +65,6 @@
     }
   }
 
-  function formatPretty(iso) {
-    var parts = String(iso || "").split("-");
-    if (parts.length !== 3) return iso || "";
-    var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    var month = months[Number(parts[1]) - 1];
-    var day = Number(parts[2]);
-    if (!month || !day) return iso;
-    return day + " " + month + " " + parts[0];
-  }
-
   function paintSettings() {
     var data = load();
     var profile = personById(data.active);
@@ -93,20 +72,17 @@
     if (profile) save(data);
     $("profile-title").textContent = profile ? profile.name : "Settings";
     $("profile-name").textContent = profile ? profile.name : "Choose a profile";
-    $("profile-first").textContent = person.firstLogin
-      ? "First login " + formatPretty(person.firstLogin)
-      : "First login can stay empty.";
     paintAvatar($("profile-photo"), $("profile-photo-img"), $("profile-photo-letter"), person, profile || { name: "?", tint: "#0c4a6e" });
     $("profile-clear-photo").hidden = !person.photo;
     if (document.activeElement !== $("profile-born")) $("profile-born").value = person.born || "";
-    if (document.activeElement !== $("profile-login")) $("profile-login").value = person.firstLogin || "";
     if (document.activeElement !== $("profile-about")) $("profile-about").value = person.about || "";
     var enabled = !!profile;
     $("profile-born").disabled = !enabled;
-    $("profile-login").disabled = !enabled;
     $("profile-about").disabled = !enabled;
+    $("profile-save-about").disabled = !enabled;
     $("profile-photo").disabled = !enabled;
     $("profile-change-photo").disabled = !enabled;
+    $("profile-about-status").hidden = true;
   }
 
   function updateActive(mutate) {
@@ -123,6 +99,10 @@
     paintSettings();
   }
 
+  function announceProfile() {
+    window.dispatchEvent(new CustomEvent("airways-profile", { detail: load().active || "" }));
+  }
+
   function choose(id) {
     if (!personById(id)) return;
     var data = load();
@@ -131,6 +111,7 @@
     save(data);
     closeGate();
     paintSettings();
+    announceProfile();
   }
 
   function setAppBlocked(blocked) {
@@ -170,7 +151,7 @@
     });
     $("who-title").textContent = switching ? "Switch person" : "Who are you?";
     $("who-lead").textContent = switching
-      ? "Each profile keeps its own photo, dates, and note on this device."
+      ? "Each profile keeps its own photo, date of birth, and note on this device."
       : "Pick your profile. This phone or computer will remember it next time.";
     $("who-cancel").hidden = !switching;
     $("who-gate").hidden = false;
@@ -225,16 +206,22 @@
     var value = $("profile-born").value;
     updateActive(function (person) { person.born = value; });
   });
-  $("profile-login").addEventListener("change", function () {
-    var value = $("profile-login").value;
-    updateActive(function (person) {
-      person.firstLogin = value;
-      person.loginNoted = true;
-    });
-  });
   $("profile-about").addEventListener("input", function () {
+    $("profile-about-status").hidden = true;
+  });
+  $("profile-save-about").addEventListener("click", function () {
     var value = $("profile-about").value;
-    updateActive(function (person) { person.about = value; });
+    var data = load();
+    if (!personById(data.active)) return;
+    var person = record(data, data.active);
+    person.about = value;
+    if (!save(data)) {
+      $("profile-photo-note").hidden = false;
+      $("profile-photo-note").textContent = "This device could not store that change.";
+      return;
+    }
+    $("profile-photo-note").hidden = true;
+    $("profile-about-status").hidden = false;
   });
   $("profile-switch").addEventListener("click", function () { renderGate(true); });
   $("who-cancel").addEventListener("click", closeGate);
@@ -245,4 +232,5 @@
     paintSettings();
     renderGate(false);
   }
+  announceProfile();
 })();

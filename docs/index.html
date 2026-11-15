@@ -8,25 +8,22 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@450;560&family=Outfit:wght@380;520;640&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="css/theme.css?v=13" rel="stylesheet">
+  <link href="css/theme.css?v=15" rel="stylesheet">
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
 </head>
 <body>
   <div class="phone-app">
   <section id="screen-flights" class="screen is-active history-screen" role="tabpanel" aria-labelledby="tab-flights">
     <div id="history-map" aria-label="Your flights on the globe"></div>
-    <div class="history-hud">
-      <div class="hud-title">Your flights</div>
-      <div class="hud-sub">Example trips until your history is saved</div>
-    </div>
-    <div id="history-shell" class="history-shell">
+    <div id="history-gesture-shield" class="history-gesture-shield" aria-hidden="true"></div>
+    <div id="history-shell" class="history-shell is-closed">
       <div class="history-flow">
         <ol id="history-flow-list" class="flow"></ol>
       </div>
-      <button id="history-toggle" type="button" class="dock-toggle history-toggle" title="Show or hide your flights">Hide</button>
+      <button id="history-toggle" type="button" class="dock-toggle history-toggle" title="Show or hide your flights">Panel</button>
     </div>
-    <div id="history-display" class="history-display">
-      <button id="history-display-toggle" type="button" class="dock-toggle history-display-toggle" title="Show or hide the flight display">Hide</button>
+    <div id="history-display" class="history-display is-closed">
+      <button id="history-display-toggle" type="button" class="dock-toggle history-display-toggle" title="Show or hide the timeline">Timeline</button>
       <div class="history-timeline">
         <div class="history-time-row">
           <button id="history-play" type="button" class="history-play" title="Play through your flights">Play</button>
@@ -129,7 +126,7 @@
     <div class="page">
       <div class="page-kicker">Profile</div>
       <h1 id="profile-title" class="page-title">Settings</h1>
-      <p class="page-lead">The six profiles stay in the app. This device remembers who you are, and any photo, dates, or note you add.</p>
+      <p class="page-lead">The six profiles stay in the app. This device remembers who you are, and any photo, date of birth, or note you add.</p>
       <div class="profile-card">
         <button id="profile-photo" type="button" class="profile-avatar" aria-label="Change profile photo">
           <img id="profile-photo-img" alt="">
@@ -138,7 +135,6 @@
         <input id="profile-file" type="file" accept="image/*" hidden>
         <div class="profile-card-copy">
           <div id="profile-name" class="profile-name">Choose a profile</div>
-          <div id="profile-first" class="profile-sub"></div>
           <div class="profile-photo-actions">
             <button id="profile-change-photo" type="button" class="btn btn-ghost profile-mini">Change photo</button>
             <button id="profile-clear-photo" type="button" class="btn btn-ghost profile-mini" hidden>Remove photo</button>
@@ -148,17 +144,17 @@
       <p id="profile-photo-note" class="profile-note" hidden></p>
       <label class="profile-field">
         <span>Date of birth</span>
-        <input id="profile-born" type="date" aria-label="Date of birth">
-      </label>
-      <label class="profile-field">
-        <span>First login</span>
-        <input id="profile-login" type="date" aria-label="First login">
+        <span class="profile-date">
+          <input id="profile-born" type="date" aria-label="Date of birth">
+        </span>
       </label>
       <label class="profile-field">
         <span>About you</span>
         <textarea id="profile-about" rows="4" placeholder="Write about yourself. Leave this blank if you prefer."></textarea>
       </label>
-      <p class="profile-hint">Date of birth, first login, and the note can all stay empty.</p>
+      <button id="profile-save-about" type="button" class="btn btn-primary profile-save">Save</button>
+      <p id="profile-about-status" class="profile-hint" hidden>Saved on this device.</p>
+      <p class="profile-hint">Date of birth and the note can stay empty.</p>
       <button id="profile-switch" type="button" class="btn btn-ghost">Switch person</button>
     </div>
   </section>
@@ -189,8 +185,8 @@
   <script src="js/globe.js?v=11"></script>
   <script src="js/orbit.js"></script>
   <script src="js/app.js?v=6"></script>
-  <script src="js/history.js?v=9"></script>
+  <script src="js/history.js?v=12"></script>
   <script src="js/shell.js?v=2"></script>
-  <script src="js/profile.js?v=2"></script>
+  <script src="js/profile.js?v=4"></script>
 </body>
 </html>
