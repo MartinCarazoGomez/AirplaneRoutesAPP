@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@450;560&family=Outfit:wght@380;520;640&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" rel="stylesheet">
-  <link href="css/theme.css?v=12" rel="stylesheet">
+  <link href="css/theme.css?v=13" rel="stylesheet">
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
 </head>
 <body>
@@ -128,17 +128,49 @@
   <section id="screen-settings" class="screen" role="tabpanel" aria-labelledby="tab-settings">
     <div class="page">
       <div class="page-kicker">Profile</div>
-      <h1 class="page-title">Settings</h1>
+      <h1 id="profile-title" class="page-title">Settings</h1>
+      <p class="page-lead">The six profiles stay in the app. This device remembers who you are, and any photo, dates, or note you add.</p>
       <div class="profile-card">
-        <div class="profile-avatar" aria-hidden="true">G</div>
-        <div>
-          <div class="profile-name">Guest</div>
-          <div class="profile-sub">Signed in on this device</div>
+        <button id="profile-photo" type="button" class="profile-avatar" aria-label="Change profile photo">
+          <img id="profile-photo-img" alt="">
+          <span id="profile-photo-letter">?</span>
+        </button>
+        <input id="profile-file" type="file" accept="image/*" hidden>
+        <div class="profile-card-copy">
+          <div id="profile-name" class="profile-name">Choose a profile</div>
+          <div id="profile-first" class="profile-sub"></div>
+          <div class="profile-photo-actions">
+            <button id="profile-change-photo" type="button" class="btn btn-ghost profile-mini">Change photo</button>
+            <button id="profile-clear-photo" type="button" class="btn btn-ghost profile-mini" hidden>Remove photo</button>
+          </div>
         </div>
       </div>
-      <p class="page-lead">You open the app as a guest. A later sign-in can keep a separate flight history for each person.</p>
+      <p id="profile-photo-note" class="profile-note" hidden></p>
+      <label class="profile-field">
+        <span>Date of birth</span>
+        <input id="profile-born" type="date" aria-label="Date of birth">
+      </label>
+      <label class="profile-field">
+        <span>First login</span>
+        <input id="profile-login" type="date" aria-label="First login">
+      </label>
+      <label class="profile-field">
+        <span>About you</span>
+        <textarea id="profile-about" rows="4" placeholder="Write about yourself. Leave this blank if you prefer."></textarea>
+      </label>
+      <p class="profile-hint">Date of birth, first login, and the note can all stay empty.</p>
+      <button id="profile-switch" type="button" class="btn btn-ghost">Switch person</button>
     </div>
   </section>
+  <div id="who-gate" class="who-gate" hidden role="dialog" aria-modal="true" aria-labelledby="who-title">
+    <div class="who-card">
+      <div class="page-kicker">Airways</div>
+      <h1 id="who-title" class="page-title">Who are you?</h1>
+      <p id="who-lead" class="page-lead">Pick your profile. This phone or computer will remember it next time.</p>
+      <div id="who-list" class="who-list"></div>
+      <button id="who-cancel" type="button" class="btn btn-ghost" hidden>Cancel</button>
+    </div>
+  </div>
   <nav class="tabbar" role="tablist" aria-label="App sections">
     <button id="tab-flights" type="button" class="tab is-selected" role="tab" aria-selected="true" aria-controls="screen-flights" data-tab="flights">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
@@ -159,5 +191,6 @@
   <script src="js/app.js?v=6"></script>
   <script src="js/history.js?v=9"></script>
   <script src="js/shell.js?v=2"></script>
+  <script src="js/profile.js?v=2"></script>
 </body>
 </html>
