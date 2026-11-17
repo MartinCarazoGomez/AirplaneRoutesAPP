@@ -792,7 +792,8 @@ html, body, #react-entry-point {
   background: rgba(8, 14, 24, 0.72);
 }
 
-.route-finder-btn.is-on {
+.route-finder-btn.is-on,
+#unique-airline-button.is-on {
   background: rgba(125, 211, 252, 0.18);
   border-color: rgba(125, 211, 252, 0.75);
   color: #e0f2fe;

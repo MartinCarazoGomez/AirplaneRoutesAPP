@@ -19,6 +19,7 @@
     showAll: false,
     combos: false,
     finder: false,
+    uniqueAirline: false,
     style: "night",
     globe: true,
     dockClosed: window.matchMedia("(max-width: 900px)").matches
@@ -287,6 +288,37 @@
     return { from: src, to: dst, airlines: airlinesOnLeg(src, dst, state.airlines) };
   }
 
+  function nonIberia(names) {
+    return names.filter(function (name) {
+      return String(name || "").toLowerCase().indexOf("iberia") === -1;
+    });
+  }
+
+  function sameAirlineCarriers(path) {
+    var common = null;
+    var hop, names, set, next;
+    for (hop = 0; hop < path.length - 1; hop++) {
+      names = nonIberia(airlinesOnLeg(path[hop], path[hop + 1], state.airlines));
+      set = {};
+      names.forEach(function (name) { set[name] = true; });
+      if (!common) common = set;
+      else {
+        next = {};
+        Object.keys(common).forEach(function (name) {
+          if (set[name]) next[name] = true;
+        });
+        common = next;
+      }
+      if (!Object.keys(common).length) return [];
+    }
+    return Object.keys(common).sort();
+  }
+
+  function keepUnique(path) {
+    if (!state.uniqueAirline) return true;
+    return sameAirlineCarriers(path).length > 0;
+  }
+
   function oneStopHubs(origin, dest, routes) {
     if (origin === dest) return [];
     var hubs = [];
@@ -312,7 +344,7 @@
     return paths;
   }
 
-  function twoStopPaths(origin, dest, routes) {
+  function twoStopPaths(origin, dest, routes, accept) {
     var a = origin.trim().toUpperCase();
     var b = dest.trim().toUpperCase();
     if (!a || !b || a === b) return [];
@@ -331,7 +363,9 @@
         if (y === a || y === b || y === x) continue;
         var last = routes.get(y);
         if (last && last.has(b)) {
-          paths.push([a, x, y, b]);
+          var path = [a, x, y, b];
+          if (accept && !accept(path)) continue;
+          paths.push(path);
           if (paths.length >= 160) return paths;
         }
       }
@@ -558,9 +592,18 @@
     var dest = state.dest;
     var finderPaths = [];
     if (state.finder && source && dest) {
-      finderPaths = routeCombinations(source, dest, active);
-      var hasOneStop = finderPaths.some(function (path) { return path.length === 3; });
-      if (!hasOneStop) finderPaths = finderPaths.concat(twoStopPaths(source, dest, active));
+      var rawPaths = routeCombinations(source, dest, active);
+      var directs = rawPaths.filter(function (path) { return path.length === 2; });
+      var oneStops = rawPaths.filter(function (path) { return path.length === 3; });
+      if (state.uniqueAirline) {
+        directs = directs.filter(keepUnique);
+        oneStops = oneStops.filter(keepUnique);
+      }
+      finderPaths = directs.concat(oneStops);
+      if (!oneStops.length) {
+        var twoStops = twoStopPaths(source, dest, active, state.uniqueAirline ? keepUnique : null);
+        finderPaths = finderPaths.concat(twoStops);
+      }
     }
     var shown = [];
     var highlighted = null;
@@ -798,6 +841,7 @@
       else if (twoStop) sub = "No direct · " + twoStop + " two-stop";
       else sub = "No direct or one-stop route";
       if (state.airlines.length) sub += " · selected airlines";
+      if (state.uniqueAirline) sub += " · same airline, excluding Iberia";
       title = source + "  →  " + dest;
     } else if (state.finder && source) {
       title = source;
@@ -856,7 +900,30 @@
       "<p class='muted' style='margin:6px 0 0 0;font-size:11px'>" + esc(captionOf(a) + " → " + captionOf(b)) + "</p>";
   }
 
-  function plannerHtml(routes) {
+  function itineraryBlock(path) {
+    var hops = path.length - 1;
+    var title = hops <= 1 ? "Nonstop" : hops === 2 ? "1 stop" : "2 stops";
+    var html = "<div class='ticket'><div class='ticket-kicker'><strong>" + title + "</strong></div>" +
+      "<div class='mono'>" + esc(path.join(" → ")) + "</div>";
+    if (hops === 2) {
+      html += "<div class='muted' style='font-size:10px;margin:2px 0 6px 0'>" + esc(captionOf(path[1])) + "</div>";
+    } else if (hops >= 3) {
+      html += "<div class='muted' style='font-size:10px;margin:2px 0 6px 0'>" + esc(captionOf(path[1]) + " · " + captionOf(path[2])) + "</div>";
+    }
+    var empty = state.airlines.length ? "no filter match" : "—";
+    var hop;
+    for (hop = 0; hop < hops; hop++) {
+      var names = airlinesOnLeg(path[hop], path[hop + 1], state.airlines);
+      html += "<div style='font-size:11px" + (hop ? ";margin-top:2px" : "") + "'><span style='font-weight:600'>Leg " + (hop + 1) + ": </span><span>" + esc(names.length ? formatAirlineNames(names) : empty) + "</span></div>";
+    }
+    if (state.uniqueAirline) {
+      var shared = sameAirlineCarriers(path);
+      html += "<div class='muted ticket-airlines'>" + esc(shared.length ? formatAirlineNames(shared) : "No shared airline") + "</div>";
+    }
+    return html + "</div>";
+  }
+
+  function plannerHtml(routes, paths) {
     if (!state.source || !state.dest) {
       return "<p class='muted' style='margin:0;line-height:1.45'>Same airports as above. Lists every itinerary with at most one stop (two segments), using only legs that appear with your airline filter.</p>";
     }
@@ -866,29 +933,17 @@
       return "<p class='muted' style='margin:0'>Set valid, distinct airports to see itineraries.</p>";
     }
     var blocks = [];
-    if (routes.get(a) && routes.get(a).has(b)) {
-      var air = airlinesOnLeg(a, b, state.airlines);
-      var airText = air.length ? formatAirlineNames(air) : (state.airlines.length ? "— (no carriers match filter)" : formatAirlineNames(air));
-      blocks.push(
-        "<div class='ticket'><div class='ticket-kicker'><strong>Nonstop</strong></div>" +
-        "<div class='mono'>" + esc(a + " → " + b) + "</div>" +
-        "<div class='muted ticket-airlines'>" + esc(airText) + "</div></div>"
-      );
+    if (paths) {
+      paths.forEach(function (path) { blocks.push(itineraryBlock(path)); });
+    } else {
+      if (routes.get(a) && routes.get(a).has(b)) blocks.push(itineraryBlock([a, b]));
+      oneStopHubs(a, b, routes).forEach(function (hub) { blocks.push(itineraryBlock([a, hub, b])); });
     }
-    oneStopHubs(a, b, routes).forEach(function (hub) {
-      var leg1 = airlinesOnLeg(a, hub, state.airlines);
-      var leg2 = airlinesOnLeg(hub, b, state.airlines);
-      var empty = state.airlines.length ? "no filter match" : "—";
-      blocks.push(
-        "<div class='ticket'><div class='ticket-kicker'><strong>1 stop</strong></div>" +
-        "<div class='mono'>" + esc(a + " → " + hub + " → " + b) + "</div>" +
-        "<div class='muted' style='font-size:10px;margin:2px 0 6px 0'>" + esc(captionOf(hub)) + "</div>" +
-        "<div style='font-size:11px'><span style='font-weight:600'>Leg 1: </span><span>" + esc(leg1.length ? formatAirlineNames(leg1) : empty) + "</span></div>" +
-        "<div style='font-size:11px;margin-top:2px'><span style='font-weight:600'>Leg 2: </span><span>" + esc(leg2.length ? formatAirlineNames(leg2) : empty) + "</span></div></div>"
-      );
-    });
     if (!blocks.length) {
-      return "<p class='muted' style='margin:0'>No nonstop or single-stop connection in the current network.</p>";
+      var emptyMsg = state.uniqueAirline
+        ? "No itinerary where every leg shares an airline other than Iberia."
+        : "No nonstop or single-stop connection in the current network.";
+      return "<p class='muted' style='margin:0'>" + emptyMsg + "</p>";
     }
     return blocks.join("");
   }
@@ -1074,7 +1129,10 @@
     banner.textContent = hud.banner;
     banner.className = hud.banner ? "two-stop-banner" : "two-stop-banner is-hidden";
     $("route-checker-content").innerHTML = checkerHtml(view.network.routes);
-    $("route-planner-content").innerHTML = plannerHtml(view.network.routes);
+    $("route-planner-content").innerHTML = plannerHtml(view.network.routes, state.finder && state.source && state.dest ? view.finderPaths : null);
+    var uniqueButton = $("unique-airline-button");
+    uniqueButton.classList.toggle("is-on", state.uniqueAirline);
+    uniqueButton.setAttribute("aria-pressed", state.uniqueAirline ? "true" : "false");
     renderChips();
     syncInputs();
     renderPanel(view);
@@ -1291,6 +1349,10 @@
     });
     $("myid-travel-preset-button").addEventListener("click", function () { applyPreset(presets.myid); });
     $("asian-myid-preset-button").addEventListener("click", function () { applyPreset(presets.asianMyid); });
+    $("unique-airline-button").addEventListener("click", function () {
+      state.uniqueAirline = !state.uniqueAirline;
+      render();
+    });
     $("clear-airlines-button").addEventListener("click", function () {
       state.airlines = [];
       render();
